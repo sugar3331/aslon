@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>注册页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        form {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            display: block;
+            width: 96%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        input[type="submit"] {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #008cba;
+            color: #ffffff;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        input[type="submit"]:hover {
+            background-color: #006d8b;
+        }
+    </style>
+</head>
+<body>
+<h1>注册页面</h1>
+<form id="registerForm" onsubmit="register(event)">
+    <label for="username">账号：</label>
+    <input type="text" id="username" name="username" required><br>
+
+    <label for="password">密码：</label>
+    <input type="password" id="password" name="password" required><br>
+
+    <label for="nick">昵称：</label>
+    <input type="text" id="nick" name="nick" required><br>
+
+    <input type="submit" value="注册">
+</form>
+
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+    function register(event) {
+        event.preventDefault(); // 阻止表单提交
+
+        var form = document.getElementById("registerForm");
+        var jsonData = {
+            "name": form.username.value,
+            "password": form.password.value,
+            "nick": form.nick.value
+        };
+
+        axios.post("/register", jsonData)
+            .then(function (response) {
+                // alert(response.data.message);
+                if (response.data.code === "200"){
+                    alert("注册成功，前往的登陆");
+                    window.location.href = "login";
+                }else {
+                    alert("注册失败，用户名已被占用请更换用户名");
+                }
+                // 根据返回的状态码跳转到登录页面或其他操作
+            })
+            .catch(function (error) {
+                console.log(error);
+            });
+    }
+</script>
+</body>
+</html>

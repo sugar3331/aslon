@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+
+        #container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #messages {
+            height: 600px;
+            overflow-y: scroll;
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+
+        #inputMessage {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            margin-bottom: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            background-color: #008cba;
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background-color: #006d8b;
+        }
+
+        .user {
+            cursor: pointer;
+            color: blue;
+            /*text-decoration: underline;*/
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+
+</head>
+<body>
+<p style="text-align: center;">全区聊天室，点击对方名字和id可以私聊😊</p>
+<div id="container">
+    <div id="messages"></div>
+    <input type="text" id="inputMessage" />
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+    const socketAccessToken = localStorage.getItem("Authorization");
+    console.log("AccessToken: ", socketAccessToken);
+    // 获取当前请求的URL
+    var url = new URL(window.location.href);
+    // 解析URL参数
+    var params = new URLSearchParams(url.search);
+    // 获取userid参数的值
+    var accessToken = params.get("accessToken");
+    // 声明socket变量，在后续的条件分支中进行赋值
+    let socket;
+
+    if (!socketAccessToken) {
+        // 如果本地存储的 AccessToken 为空，则使用查询参数中的 accessToken 建立 WebSocket 连接
+        socket = new WebSocket("ws://152.32.213.10:9090/chat?token=" + accessToken);
+    } else {
+        // 否则，使用本地存储的 AccessToken 建立 WebSocket 连接
+        socket = new WebSocket("ws://152.32.213.10:9090/chat?token=" + socketAccessToken);
+    }
+    const messagesDiv = document.getElementById("messages");
+    const inputMessage = document.getElementById("inputMessage");
+
+    //WebSocket 连接建立后的回调函数。在该回调函数中，打印一条消息到控制台表示连接已经打开。
+    socket.onopen = function(event) {
+        console.log("WebSocket connection opened.");
+    };
+
+    //WebSocket 接收到消息时的回调函数。在该回调函数中，将接收到的消息添加到网页上显示出来。
+    socket.onmessage = function(event) {
+        console.log(event.data)
+        const data = JSON.parse(event.data);
+        const message = data.Message;
+        const username = data.Username;
+        const userid = data.Userid;
+        const sendtime = data.SendTime
+        let sendtimeDate = new Date(sendtime);
+        // 从 Date 对象中提取小时和分钟
+        let hour = sendtimeDate.getHours();
+        let minute = sendtimeDate.getMinutes();
+
+        console.log("Received message:", message);
+        // 将接收到的消息添加到网页上
+        messagesDiv.innerHTML += `<div>${hour}:${minute} [<span class="user" onclick="startP2P('${userid}', '${username}')"> ${username} </span>]  : ${message}</div>`;
+    };
+
+    //WebSocket 连接关闭后的回调函数。在该回调函数中，打印一条消息到控制台表示连接已经关闭。
+    socket.onclose = function(event) {
+        console.log("WebSocket connection closed.");
+        alert("身份验证过期，请重新登录")
+        window.location.href = "/login";
+    };
+
+    function sendMessage() {
+        const message = inputMessage.value;
+        if (message) {
+            // 发送消息给服务器
+            socket.send(message);
+
+            // 清空输入框
+            inputMessage.value = "";
+            messagesDiv.innerHTML += `
+          <div>
+            [ 我 ]:
+            ${message}
+          </div>`;
+        }
+    }
+
+    function startP2P(taruserid) {
+        window.location.href = "p2pChat?taruserid="+taruserid+"&accessToken="+accessToken;
+    }
+
+
+</script>
+</body>
+</html>

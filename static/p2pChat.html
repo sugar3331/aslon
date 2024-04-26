@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Chat Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            color: #333333;
+        }
+
+        .messages {
+            height: 300px;
+            overflow-y: scroll;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+
+        .inputMessage {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            margin-bottom: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+            color: #333333;
+        }
+
+        .sendButton {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            background-color: #008cba;
+            color: #ffffff;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .sendButton:hover {
+            background-color: #006d8b;
+        }
+
+        .publicChatButton {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            background-color: #ff6f00;
+            color: #ffffff;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            margin-top: 10px;
+        }
+
+        .publicChatButton:hover {
+            background-color: #ff8f00;
+        }
+
+        .user {
+            cursor: pointer;
+            color: #008cba;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+<p style="text-align: center;">私信界面🧑‍🤝‍🧑</p>
+<div class="container">
+    <div class="messages" id="messages"></div>
+    <input type="text" class="inputMessage" id="inputMessage" />
+    <button class="sendButton" onclick="sendMessage()">Send</button>
+    <button class="publicChatButton" onclick="goToPublicChat()">公共聊天室</button>
+</div>
+
+<script>
+    const socketAccessToken = localStorage.getItem("Authorization");
+    console.log("AccessToken: ", socketAccessToken);
+    // 获取当前请求的URL
+    var url = new URL(window.location.href);
+    // 解析URL参数
+    var params = new URLSearchParams(url.search);
+    // 获取userid参数的值
+    var taruserid = params.get("taruserid");
+    var accessToken = params.get("accessToken")
+    console.log(taruserid); // 输出userid参数的值
+
+    // 下面是建立websocket连接
+    // 声明socket变量，在后续的条件分支中进行赋值
+    let socket;
+
+    if (!socketAccessToken) {
+        // 如果本地存储的 AccessToken 为空，则使用查询参数中的 accessToken 建立 WebSocket 连接
+        socket = new WebSocket("ws://152.32.213.10:9090/p2pChat?taruserid="+taruserid+"&token="+accessToken);
+    } else {
+        // 否则，使用本地存储的 AccessToken 建立 WebSocket 连接
+        socket = new WebSocket("ws://152.32.213.10:9090/p2pChat?taruserid="+taruserid+"&token="+socketAccessToken);
+    }
+
+    const messagesDiv = document.getElementById("messages");
+    const inputMessage = document.getElementById("inputMessage");
+
+    // WebSocket 连接建立后的回调函数。在该回调函数中，打印一条消息到控制台表示连接已经打开。
+    socket.onopen = function(event) {
+        console.log("WebSocket connection opened.");
+    };
+
+    // WebSocket 接收到消息时的回调函数。在该回调函数中，将接收到的消息添加到网页上显示出来。
+    socket.onmessage = function(event) {
+        console.log(event.data)
+        const data = JSON.parse(event.data);
+        const message = data.Message;
+        const username = data.Username;
+        const userid = data.Userid;
+        const sendtime = data.SendTime
+        let sendtimeDate = new Date(sendtime);
+        // 从 Date 对象中提取小时和分钟
+        let hour = sendtimeDate.getHours();
+        let minute = sendtimeDate.getMinutes();
+
+        console.log("Received message:", message);
+        // 将接收到的消息添加到网页上
+        messagesDiv.innerHTML += `<div>${hour}:${minute} [<span class="user" onclick="startP2P('${userid}', '${username}')"> ${username} </span>]  : ${message}</div>`;
+
+    };
+
+    // WebSocket 连接关闭后的回调函数。在该回调函数中，打印一条消息到控制台表示连接已经关闭。
+    socket.onclose = function(event) {
+        console.log("WebSocket connection closed.");
+        alert("建立连接失败😶‍🌫️，请返回主页面刷新(不能与自己聊天🤐)")
+        window.location.href = "/chat?accessToken="+accessToken;
+    };
+
+    function sendMessage() {
+        const message = inputMessage.value;
+        if (message) {
+            // 发送消息给服务器
+            socket.send(message);
+
+            // 清空输入框
+            inputMessage.value = "";
+            messagesDiv.innerHTML += `
+          <div>
+            [我]:
+            ${message}
+          </div>`;
+        }
+    }
+
+    function goToPublicChat() {
+        window.location.href = "/chat?accessToken="+accessToken;
+    }
+
+</script>
+</body>
+</html>
