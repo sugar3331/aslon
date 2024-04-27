@@ -1,7 +1,9 @@
 package initialize
 
 import (
+	"aslon/global"
 	"context"
+	"fmt"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
@@ -10,12 +12,12 @@ import (
 func MongodbInit() *mongo.Client {
 	// 设置凭据
 	credential := options.Credential{
-		Username: "root",
-		Password: "sugar313",
+		Username: global.GlobalConfig.Mongo.Username,
+		Password: global.GlobalConfig.Mongo.Password,
 	}
-
+	url := fmt.Sprintf("mongodb://%s:%s", global.GlobalConfig.Mongo.Path, global.GlobalConfig.Mongo.Port)
 	// 设置连接选项
-	clientOptions := options.Client().ApplyURI("mongodb://1.94.27.198:27017").SetAuth(credential)
+	clientOptions := options.Client().ApplyURI(url).SetAuth(credential)
 
 	// 连接到MongoDB
 	client, err := mongo.Connect(context.TODO(), clientOptions)

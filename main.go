@@ -6,6 +6,7 @@ import (
 	"aslon/global"
 	"aslon/initialize"
 	"aslon/service"
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -21,8 +22,9 @@ func main() {
 		http.HandleFunc("/publicChat", service.PublicChat)
 		http.HandleFunc("/chat", service.Chat)
 		http.HandleFunc("/p2pChat", v1.P2PChat)
-		log.Println("IM Websocket Starting server at: 9090...")
-		err := http.ListenAndServe(":9090", nil)
+		log.Printf("IM Websocket Starting server at: %v...\n", global.GlobalConfig.System.ChatAddr)
+		chatAddr := fmt.Sprintf(":%v", global.GlobalConfig.System.ChatAddr)
+		err := http.ListenAndServe(chatAddr, nil)
 		if err != nil {
 			log.Fatal("聊天服务启动失败！！！:", err)
 		}
