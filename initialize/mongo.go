@@ -8,7 +8,17 @@ import (
 )
 
 func MongodbInit() *mongo.Client {
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://1.94.27.198:27017"))
+	// 设置凭据
+	credential := options.Credential{
+		Username: "root",
+		Password: "sugar313",
+	}
+
+	// 设置连接选项
+	clientOptions := options.Client().ApplyURI("mongodb://1.94.27.198:27017").SetAuth(credential)
+
+	// 连接到MongoDB
+	client, err := mongo.Connect(context.TODO(), clientOptions)
 	err = client.Ping(context.TODO(), nil)
 	if err != nil {
 		// 处理连接失败的错误
@@ -17,5 +27,4 @@ func MongodbInit() *mongo.Client {
 		log.Println("mongodb 连接数据库成功")
 	}
 	return client
-
 }

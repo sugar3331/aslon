@@ -7,13 +7,15 @@ import (
 
 type Client struct {
 	Conn     *websocket.Conn
-	Username string
-	Userid   string
+	UserName string
+	UserId   string
+	UserNick string
 }
 
 type FullMessage struct {
 	Message  string
-	Username string
-	Userid   string
+	UserName string
+	UserId   string
+	UserNick string
 	SendTime time.Time
 }

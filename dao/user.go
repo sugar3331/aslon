@@ -9,7 +9,7 @@ type UserDao struct {
 }
 
 func (u *UserDao) GetUser(name, password string) (user do.User, err error) {
-	sql := `SELECT id,name,password FROM user WHERE name=? AND password=?`
+	sql := `SELECT id,name,nick,password FROM user WHERE name=? AND password=?`
 	err = global.UserDB.Raw(sql, name, password).Scan(&user).Error
 	return
 }

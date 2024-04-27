@@ -49,6 +49,7 @@ func (j *VoteJwt) GetToken(id uint64, name, nick string, role string) (aToken st
 		Role:             role,
 		RegisteredClaims: rc,
 	}
+
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
 
 	bytes := []byte(TokenIssuer)
@@ -57,11 +58,11 @@ func (j *VoteJwt) GetToken(id uint64, name, nick string, role string) (aToken st
 }
 
 // ImJwtAuthMiddleware 用户单独聊天室的权限验证服务
-func (j *VoteJwt) ImJwtAuthMiddleware(tokenStr string) (id, name string, err error) {
+func (j *VoteJwt) ImJwtAuthMiddleware(tokenStr string) (id, name, nick string, err error) {
 	claim := &Claim{}
 	if tokenStr == "" {
 		fmt.Println("Im验证权限失败")
-		return "", "", err
+		return "", "", "", err
 	}
 	token, err := jwt.ParseWithClaims(tokenStr, claim, func(token *jwt.Token) (interface{}, error) {
 		bytes := []byte(TokenIssuer)
@@ -69,12 +70,12 @@ func (j *VoteJwt) ImJwtAuthMiddleware(tokenStr string) (id, name string, err err
 	})
 	if err != nil {
 		fmt.Println("Im验证权限失败")
-		return "", "", err
+		return "", "", "", err
 	}
 	if !token.Valid {
 		fmt.Println("Im验证权限失败")
-		return "", "", err
+		return "", "", "", err
 	}
 	id = strconv.Itoa(int(claim.ID))
-	return id, claim.Name, nil
+	return id, claim.Name, claim.Nick, nil
 }

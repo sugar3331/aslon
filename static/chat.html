@@ -19,7 +19,7 @@
         }
 
         #messages {
-            height: 600px;
+            height: 500px;
             overflow-y: scroll;
             margin-bottom: 10px;
             padding: 10px;
@@ -28,7 +28,7 @@
         }
 
         #inputMessage {
-            width: 100%;
+            width: 97%;
             padding: 10px;
             border-radius: 5px;
             border: none;
@@ -85,10 +85,12 @@
 
     if (!socketAccessToken) {
         // 如果本地存储的 AccessToken 为空，则使用查询参数中的 accessToken 建立 WebSocket 连接
-        socket = new WebSocket("ws://152.32.213.10:9090/chat?token=" + accessToken);
+        socket = new WebSocket("ws://127.0.0.1:9090/chat?token=" + accessToken);
+        // socket = new WebSocket("ws://152.32.213.10:9090/chat?token=" + accessToken);
     } else {
         // 否则，使用本地存储的 AccessToken 建立 WebSocket 连接
-        socket = new WebSocket("ws://152.32.213.10:9090/chat?token=" + socketAccessToken);
+        socket = new WebSocket("ws://127.0.0.1:9090/chat?token=" + socketAccessToken);
+        // socket = new WebSocket("ws://152.32.213.10:9090/chat?token=" + socketAccessToken);
     }
     const messagesDiv = document.getElementById("messages");
     const inputMessage = document.getElementById("inputMessage");
@@ -103,17 +105,22 @@
         console.log(event.data)
         const data = JSON.parse(event.data);
         const message = data.Message;
-        const username = data.Username;
-        const userid = data.Userid;
+        const username = data.UserName;
+        const userid = data.UserId;
+        const usernick =data.UserNick
         const sendtime = data.SendTime
         let sendtimeDate = new Date(sendtime);
         // 从 Date 对象中提取小时和分钟
+        let month = sendtimeDate.getMonth()
+        let date = sendtimeDate.getDate()
         let hour = sendtimeDate.getHours();
         let minute = sendtimeDate.getMinutes();
 
         console.log("Received message:", message);
         // 将接收到的消息添加到网页上
-        messagesDiv.innerHTML += `<div>${hour}:${minute} [<span class="user" onclick="startP2P('${userid}', '${username}')"> ${username} </span>]  : ${message}</div>`;
+        messagesDiv.innerHTML += `<div><span style="font-size: 10px; color: #006d8b;">${month}-${date} ${hour}:${minute}</span> [<span class="user" onclick="startP2P('${userid}', '${username}')"> ${usernick} </span>]  : ${message}</div>`;
+        // 滚动消息显示区域到底部
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
     };
 
     //WebSocket 连接关闭后的回调函数。在该回调函数中，打印一条消息到控制台表示连接已经关闭。

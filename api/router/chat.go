@@ -15,5 +15,7 @@ func (ch *ChatRouter) InitChatRouter(Router *gee.RouterGroup) {
 		chatRouter.GET("chat", chatApi.GetChat)
 
 		chatRouter.GET("p2pChat", chatApi.GetP2PChat)
+
+		chatRouter.GET("/", chatApi.GetPublicChat)
 	}
 }

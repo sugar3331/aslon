@@ -72,7 +72,6 @@
     <input type="submit" value="注册">
 </form>
 
-<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script>
     function register(event) {
         event.preventDefault(); // 阻止表单提交
@@ -84,19 +83,26 @@
             "nick": form.nick.value
         };
 
-        axios.post("/register", jsonData)
+        fetch("/register", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(jsonData)
+        })
             .then(function (response) {
-                // alert(response.data.message);
-                if (response.data.code === "200"){
-                    alert("注册成功，前往的登陆");
+                return response.json();
+            })
+            .then(function (data) {
+                if (data.code === "200") {
+                    alert("注册成功，前往登录");
                     window.location.href = "login";
-                }else {
-                    alert("注册失败，用户名已被占用请更换用户名");
+                } else {
+                    alert("注册失败，用户名已被占用，请更换用户名");
                 }
-                // 根据返回的状态码跳转到登录页面或其他操作
             })
             .catch(function (error) {
-                console.log(error);
+                console.error("注册时出现错误:", error);
             });
     }
 </script>

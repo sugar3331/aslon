@@ -5,6 +5,7 @@ import (
 	"aslon/middleware"
 	"aslon/model/bo"
 	"aslon/model/dto"
+	"errors"
 	"log"
 	"strconv"
 )
@@ -19,8 +20,12 @@ func (u *UserService) Login(user dto.LoginReq) (token bo.Token, err error) {
 		return
 	}
 
+	if dbRet.Id == 0 {
+		return token, errors.New("账户密码错误")
+	}
+
 	id, _ := strconv.ParseInt(strconv.FormatUint(dbRet.Id, 10), 10, 64)
-	aToken, err := middleware.Token.GetToken(uint64(id), dbRet.Name, dbRet.Name, "user")
+	aToken, err := middleware.Token.GetToken(uint64(id), dbRet.Name, dbRet.Nick, "user")
 
 	if err != nil {
 		log.Println(err)

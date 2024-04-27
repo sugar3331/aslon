@@ -6,12 +6,15 @@ import (
 	"aslon/model/bo"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -20,6 +23,7 @@ type ChatService struct {
 }
 
 var clients = &sync.Map{}
+var publicClients = &sync.Map{}
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -29,9 +33,110 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+func PublicChat(w http.ResponseWriter, r *http.Request) {
+
+	//升级http连接为WebSocket连接
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	userid, _ := GetIP(r)
+	username := userid
+	usernick := username
+
+	// 创建 Client 结构体，并将连接和用户名保存其中
+	client := &bo.Client{
+		Conn:     conn,
+		UserId:   userid,
+		UserName: username,
+		UserNick: usernick,
+	}
+
+	// 将连接添加到clients列表
+	publicClients.Store(client, true)
+	defer func() {
+		conn.Close()
+		// 连接断开时从clients列表移除该连接
+		publicClients.Delete(client)
+	}()
+
+	//从mongodb里面读缓存
+	go sendRecentMessages(client, "UnAuthChat")
+	// 处理WebSocket连接
+	for {
+		// 读取消息
+		messageType, msg, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err)
+			break
+		}
+		log.Println("Received message:", string(msg))
+		sendtimeNow := time.Now()
+		fullMe := bo.FullMessage{
+			Message:  string(msg),
+			UserName: username,
+			UserId:   userid,
+			UserNick: usernick,
+			SendTime: sendtimeNow,
+		}
+		log.Println("开始发消息，用户id: " + userid + ":" + string(msg))
+		go saveMessageToMongoDB(fullMe, "UnAuthChat")
+		// 广播消息给所有客户端
+		go publicBroadcastMessage(messageType, fullMe, client)
+	}
+}
+
+// broadcastMessage 服务端把用户发送的消息推送给所有在线用户的广播函数
+func publicBroadcastMessage(messageType int, fullMe bo.FullMessage, sender *bo.Client) {
+	publicClients.Range(func(key, value interface{}) bool {
+		client := key.(*bo.Client)
+
+		// 不向消息发送者推送消息
+		if client == sender {
+			return true
+		}
+
+		err := client.Conn.WriteJSON(fullMe)
+		if err != nil {
+			log.Println(err)
+			client.Conn.Close()
+			publicClients.Delete(client)
+		}
+		return true
+	})
+}
+
+// GetIP returns request real ip.
+func GetIP(r *http.Request) (string, error) {
+	ip := r.Header.Get("X-Real-IP")
+	if net.ParseIP(ip) != nil {
+		return ip, nil
+	}
+
+	ip = r.Header.Get("X-Forward-For")
+	for _, i := range strings.Split(ip, ",") {
+		if net.ParseIP(i) != nil {
+			return i, nil
+		}
+	}
+
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return "", err
+	}
+
+	if net.ParseIP(ip) != nil {
+		return ip, nil
+	}
+
+	return "", errors.New("no valid ip found")
+}
+
 func Chat(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
-	userid, username, err := middleware.Token.ImJwtAuthMiddleware(token)
+	userid, username, usernick, err := middleware.Token.ImJwtAuthMiddleware(token)
 	if err != nil {
 		return
 	}
@@ -45,8 +150,9 @@ func Chat(w http.ResponseWriter, r *http.Request) {
 	// 创建 Client 结构体，并将连接和用户名保存其中
 	client := &bo.Client{
 		Conn:     conn,
-		Userid:   userid,
-		Username: username,
+		UserId:   userid,
+		UserName: username,
+		UserNick: usernick,
 	}
 
 	// 将连接添加到clients列表
@@ -57,7 +163,7 @@ func Chat(w http.ResponseWriter, r *http.Request) {
 		clients.Delete(client)
 	}()
 	//从mongodb里面读缓存
-	go sendRecentMessages(client)
+	go sendRecentMessages(client, "publicChat")
 	// 处理WebSocket连接
 	for {
 		// 读取消息
@@ -70,21 +176,22 @@ func Chat(w http.ResponseWriter, r *http.Request) {
 		sendtimeNow := time.Now()
 		fullMe := bo.FullMessage{
 			Message:  string(msg),
-			Username: username,
-			Userid:   userid,
+			UserName: username,
+			UserId:   userid,
+			UserNick: usernick,
 			SendTime: sendtimeNow,
 		}
 		log.Println("开始发消息，用户id: " + userid + ":" + string(msg))
-		go saveMessageToMongoDB(fullMe)
+		go saveMessageToMongoDB(fullMe, "publicChat")
 		// 广播消息给所有客户端
 		go broadcastMessage(messageType, fullMe, client)
 	}
 }
 
-func sendRecentMessages(client *bo.Client) {
-	opts := options.Find().SetSort(bson.D{{"_id", -1}}).SetLimit(30)
+func sendRecentMessages(client *bo.Client, table string) {
+	opts := options.Find().SetSort(bson.D{{"_id", -1}}).SetLimit(23)
 	filter := bson.D{{}}
-	collection := global.Mogo.Database("ImChat").Collection("publicChat")
+	collection := global.Mogo.Database("ImChat").Collection(table)
 	cursor, err := collection.Find(context.TODO(), filter, opts)
 	if err != nil {
 		log.Println(err)
@@ -101,7 +208,6 @@ func sendRecentMessages(client *bo.Client) {
 		recentMessages = append(recentMessages, message)
 	}
 
-	// 倒序发送最近的 30 条记录给客户端
 	for i := len(recentMessages) - 1; i >= 0; i-- {
 		err := client.Conn.WriteJSON(recentMessages[i])
 		if err != nil {
@@ -111,8 +217,8 @@ func sendRecentMessages(client *bo.Client) {
 	}
 }
 
-func saveMessageToMongoDB(msg bo.FullMessage) error {
-	collection := global.Mogo.Database("ImChat").Collection("publicChat")
+func saveMessageToMongoDB(msg bo.FullMessage, tabel string) error {
+	collection := global.Mogo.Database("ImChat").Collection(tabel)
 	_, err := collection.InsertOne(context.Background(), msg)
 	if err != nil {
 		return err
@@ -145,7 +251,7 @@ var p2pclients sync.Map
 func (ch *ChatService) P2PChat(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	log.Println("开始进行点对点通信，首先身份验证")
-	userid, username, err := middleware.Token.ImJwtAuthMiddleware(token)
+	userid, username, usernick, err := middleware.Token.ImJwtAuthMiddleware(token)
 	if err != nil {
 		return
 	}
@@ -177,13 +283,13 @@ func (ch *ChatService) P2PChat(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("身份验证完毕用户id: " + userid + " 用户: " + username + " 开始与对方id通信: " + targetUserID)
 	go sendP2PRecentMessages(userid, targetUserID, conn)
-	go handleIncomingMessage(userid, targetUserID, username, conn, exitSignal)
+	go handleIncomingMessage(userid, targetUserID, username, usernick, conn, exitSignal)
 
 	// 在这里等待信号通知退出
 	<-exitSignal
 }
 
-func handleIncomingMessage(userid, targetUserID, username string, conn *websocket.Conn, exitSignal <-chan struct{}) {
+func handleIncomingMessage(userid, targetUserID, username, usernick string, conn *websocket.Conn, exitSignal <-chan struct{}) {
 	for {
 		select {
 		case <-exitSignal:
@@ -198,8 +304,9 @@ func handleIncomingMessage(userid, targetUserID, username string, conn *websocke
 			sendtimeNow := time.Now()
 			pup2pmessage := bo.FullMessage{
 				Message:  string(rep2pmessage),
-				Username: username,
-				Userid:   userid,
+				UserName: username,
+				UserId:   userid,
+				UserNick: usernick,
 				SendTime: sendtimeNow,
 			}
 			go func() {

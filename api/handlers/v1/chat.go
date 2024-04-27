@@ -24,3 +24,7 @@ func (ch *ChatApi) GetChat(c *gee.Context) {
 func (ch *ChatApi) GetP2PChat(c *gee.Context) {
 	c.HTML(http.StatusOK, "p2pChat.html", gee.H{})
 }
+
+func (ch *ChatApi) GetPublicChat(c *gee.Context) {
+	c.HTML(http.StatusOK, "publicChat.html", gee.H{})
+}
